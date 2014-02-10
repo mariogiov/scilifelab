@@ -43,7 +43,7 @@ class MetricsParser():
         data["reads_fail_align"] = int(in_handle.readline().split(" ")[-2])
         return data
 
-    def parse_fastq_screen_metrics(in_handle):
+    def parse_fastq_screen_metrics(self, in_handle):
         data = {}
         for line in in_handle:
             try:
