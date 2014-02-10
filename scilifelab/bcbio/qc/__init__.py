@@ -43,29 +43,30 @@ class MetricsParser():
         data["reads_fail_align"] = int(in_handle.readline().split(" ")[-2])
         return data
 
-    def parse_fastq_screen_metrics(self, in_handle):
-        in_handle.readline()
+    def parse_fastq_screen_metrics(in_handle):
         data = {}
-        while 1:
-            line = in_handle.readline()
-            if not line:
-                break
-            vals = line.rstrip("\t\n").split("\t")
-            data[vals[0]] = {}
-            data[vals[0]]["Unmapped"] = float(vals[1])
-            data[vals[0]]["Mapped_One_Library"] = float(vals[2])
-            data[vals[0]]["Mapped_Multiple_Libraries"] = float(vals[3])
+        for line in in_handle:
+            try:
+                vals = [ elt.strip() for elt in line.split() ]
+                unmapped            = float(vals[1])
+                mapped_single_lib   = float(vals[2]) + float(vals[3])
+                mapped_multiple_lib = float(vals[4]) + float(vals[5])
+                stats_dict = data[vals[0]] = {}
+                stats_dict["Unmapped"]                  = unmapped
+                stats_dict["Mapped_One_Library"]        = mapped_single_lib
+                stats_dict["Mapped_Multiple_Libraries"] = mapped_multiple_lib
+            except (ValueError, IndexError):
+                # Skip non-numeric (header, comment) lines
+                pass
         return data
 
     def parse_undemultiplexed_barcode_metrics(self, in_handle):
-
         data = collections.defaultdict(list)
         for line in in_handle:
             data[line['lane']].append({c:line[c] for c in in_handle.fieldnames if c != 'lane'})
         return data
 
     def parse_bcbb_checkpoints(self, in_handle):
-
         TIMEFORMAT = "%Y-%m-%dT%H:%M:%S.%f"
         timestamp = []
         for line in in_handle:
@@ -74,7 +75,6 @@ class MetricsParser():
                 timestamp.append(ts)
             except ValueError:
                 pass
-
         return timestamp
 
     def parse_software_versions(self, in_handle):
