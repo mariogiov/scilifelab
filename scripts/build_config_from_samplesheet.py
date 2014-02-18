@@ -150,8 +150,8 @@ def create_project_csv_from_dbinfo(file_basename, output_dir, adapter_seqs, refe
     """
     Creates a file to be used by the template generator to modify the existing
     template. Output looks like:
-        samplename,description,adapters,trim_reads
-        7_100326_FC6107FAAXX,7_100326_FC6107FAAXX,"[truseq,polya]",read_through
+        samplename,description,adapters,trim_reads,genome_build
+        7_100326_FC6107FAAXX,7_100326_FC6107FAAXX,"[truseq,polya]",read_through,hg19
     Returns the path to the file that is created.
     """
     project_csv_file = os.path.join(output_dir, "{}.csv".format(file_basename))
