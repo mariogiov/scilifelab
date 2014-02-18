@@ -125,7 +125,7 @@ def find_fastq_read_pairs(file_list):
         1_131129_BH7VPTADXX_P602_101_1.fastq.gz
         1_131129_BH7VPTADXX_P602_101_2.fastq.gz
     becomes
-        { "1_131129_BH7VPTADXX_P602_10":
+        { "1_131129_BH7VPTADXX_P602_101":
         [ "1_131129_BH7VPTADXX_P602_101_1.fastq.gz",
           "1_131129_BH7VPTADXX_P602_101_2.fastq.gz"]}
     """
