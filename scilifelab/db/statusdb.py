@@ -4,7 +4,7 @@ import collections
 from itertools import izip
 from scilifelab.db import Couch
 from scilifelab.utils.timestamp import utc_time
-from scilifelab.utils.misc import query_yes_no
+from scilifelab.utils.misc import query_yes_no, merge
 from scilifelab.db.statusDB_utils import save_couchdb_obj
 from uuid import uuid4
 from scilifelab.log import minimal_logger
@@ -29,8 +29,8 @@ VIEWS = {'samples' : {'names': {'name' : '''function(doc) {if (!doc["name"].matc
          }
 
 # Regular expressions for general use
-re_project_id = "^(P[0-9][0-9][0-9])"
-re_project_id_nr = "^P([0-9][0-9][0-9])"
+re_project_id = "^(P[0-9]{3,})"
+re_project_id_nr = "^P([0-9]{3,})"
 
 # http://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth
 # FIX ME: make override work
@@ -207,6 +207,14 @@ class SampleRunMetricsDocument(StatusDocument):
             self["project_id"] = m.group(1)
         return
 
+class AnalysisDocument(StatusDocument):
+    """Project level document for holding analysis data."""
+    _entity_type = "bp_analysis"
+    _fields = ["project_name"]
+    _dict_fields = ["samples"]
+    def __init__(self, **kw):
+        StatusDocument.__init__(self, **kw)
+
 # Updating function for object comparison
 def update_fn(cls, db, obj, viewname = "names/id_to_name", key="name"):
     """Compare object with object in db if present.
@@ -237,13 +245,14 @@ def update_fn(cls, db, obj, viewname = "names/id_to_name", key="name"):
     if equal(obj, dbobj):
         return (None, dbid)
     else:
+        # Merge the newly created object with the one found in the database, replacing
+        # the information found in the database for the new one if found the same key
+        merge(obj, dbobj)
+        # We need the original times and id from the DB object though
         obj["creation_time"] = dbobj.get("creation_time")
         obj["modification_time"] = t_utc
         obj["_rev"] = dbobj.get("_rev")
         obj["_id"] = dbobj.get("_id")
-        #Do not overwrite the content of the field [illumina][run_summary]
-        if obj.has_key('illumina') and dbobj.get('illumina', {}).has_key('run_summary'):
-            obj['illumina']['run_summary'] = dbobj['illumina']['run_summary']
         return (obj, dbid)
 
 ##############################
@@ -584,4 +593,12 @@ class ProjectSummaryConnection(Couch):
         """
         project = self.get_entry(project_name)
         return project.get('source', None)
+
+
+class AnalysisConnection(Couch):
+    _doc_type = AnalysisDocument
+    _update_fn = update_fn
+    def __init__(self, dbname="analysis", **kwargs):
+        super(AnalysisConnection, self).__init__(**kwargs)
+        self.db = self.con[dbname]
 
