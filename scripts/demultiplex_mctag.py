@@ -8,6 +8,7 @@ import argparse
 import collections
 import datetime
 import fcntl
+import gzip
 import itertools
 import os
 import random
