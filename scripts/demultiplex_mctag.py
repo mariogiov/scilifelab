@@ -20,7 +20,7 @@ import sys
 import time
 
 #from Bio import Seq, pairwise2
-from scilifelab.utils.fastq_utils import FastQParser, FastQWriter
+#from scilifelab.utils.fastq_utils import FastQParser, FastQWriter
 
 # TODO memoize sequence corrections? optimize somehow if possible
 # TODO ensure read 1,2 files are paired (SciLifeLab code)
@@ -359,6 +359,93 @@ def iter_sample_fast(iterable, samplesize, total_size):
     return results
 
 
+class FastQParser:
+    """Parser for fastq files, possibly compressed with gzip. 
+       Iterates over one record at a time. A record consists 
+       of a list with 4 elements corresponding to 1) Header, 
+       2) Nucleotide sequence, 3) Optional header, 4) Qualities"""
+
+    def __init__(self,file,filter=None):
+        self.fname = file
+        self.filter = filter
+        fh = open(file,"rb")
+        if file.endswith(".gz"):
+            self._fh = gzip.GzipFile(fileobj=fh)
+        else:
+            self._fh = fh
+        self._records_read = 0
+        self._next = self.setup_next()
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return self._next(self)
+
+    def setup_next(self):
+        """Return the function to return the next record
+        """
+        if self.filter is None or len(self.filter.keys()) == 0:
+            def _next(self):
+                self._records_read += 1
+                return [self._fh.next().strip() for n in range(4)]
+        else:
+            def _next(self):
+                while True:
+                    record = [self._fh.next().strip() for n in range(4)]
+                    header = parse_header(record[0])
+                    skip = False
+                    for k, v in self.filter.items():
+                        if k in header and header[k] not in v:
+                            skip = True
+                            break
+                    if not skip:
+                        self._records_read += 1
+                        return record 
+        return _next
+
+    def name(self):
+        return self.fname
+
+    def rread(self):
+        return self._records_read
+
+    def seek(self,offset,whence=None):
+        self._fh.seek(offset,whence)
+
+    def close(self):
+        self._fh.close()
+
+
+class FastQWriter:
+    """Writes fastq records, where each record is a list with 4 elements
+       corresponding to 1) Header, 2) Nucleotide sequence, 3) Optional header, 
+       4) Qualities. If the supplied filename ends with .gz, the output file 
+       will be compressed with gzip"""
+
+    def __init__(self,file):
+        self.fname = file
+        fh = open(file,"wb")
+        if file.endswith(".gz"):
+            self._fh = gzip.GzipFile(fileobj=fh)
+        else:    
+            self._fh = fh
+        self._records_written = 0
+
+    def name(self):
+        return self.fname
+
+    def write(self,record):
+        self._fh.write("{}\n".format("\n".join([r.strip() for r in record])))
+        self._records_written += 1
+
+    def rwritten(self):
+        return self._records_written
+
+    def close(self):
+        self._fh.close()
+
+
 class FastQAppender(FastQWriter):
     """
     A good deal like the FastQWriter but appends instead of writing.
@@ -381,10 +468,8 @@ class FastQAppender(FastQWriter):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-
     parser.add_argument("-o", "--output-directory",
                                 help="The directory to be used for storing output data. Required.")
-
     parser.add_argument("-i", "--index-file",
                                 help="File containing haloplex indexes (one per line, optional name " \
                                      "in second column separated by tab, comma, or semicolon).")
